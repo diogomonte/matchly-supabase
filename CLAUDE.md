@@ -1,6 +1,6 @@
-# serene-supabase
+# matchly
 
-A Supabase skeleton template with Google OAuth, typed TypeScript client, and migration scaffolding.
+Match players for tennis and paddel — powered by Supabase.
 
 See @README.md for full setup guide and @package.json for all available scripts.
 

@@ -1,44 +1,14 @@
-# serene-supabase
+# matchly
 
-> 🧱 **Supabase Starter Template** — Clone this repo to bootstrap a new Supabase-powered application with auth, migrations, RLS, and TypeScript types ready to go.
+> Match players for tennis and paddel — powered by [Supabase](https://supabase.com).
 
-A skeleton backend template for [Supabase](https://supabase.com), featuring:
+Features:
 
 - 🗄️ **Database & REST/GraphQL APIs** — auto-generated from your schema via PostgREST
 - 🔐 **Google (Gmail) OAuth** — sign-in with Google configured out of the box
 - 🚀 **Database migrations** — versioned SQL migrations managed with the Supabase CLI
 - 🔒 **Row Level Security** — RLS enabled by convention on every table
 - 📦 **Typed TypeScript client** — auto-generated types from your database schema
-
----
-
-## Use This Template
-
-### Option 1 — GitHub "Use this template" button
-
-Click **[Use this template](https://github.com/diogomonte/serene-supabase/generate)** at the top of this repo to create a new repository, then:
-
-```bash
-git clone https://github.com/<your-owner>/<your-repo>.git
-cd <your-repo>
-chmod +x scripts/init.sh
-./scripts/init.sh
-```
-
-The interactive script replaces all project-specific placeholders (name, Supabase project ref, URLs) throughout the codebase.
-
-### Option 2 — AI-assisted setup
-
-See **[TEMPLATE_PROMPT.md](TEMPLATE_PROMPT.md)** for a ready-to-use prompt you can paste into an AI assistant to walk you through setup.
-
-### Option 3 — Manual replacement
-
-Search and replace these values in the codebase:
-
-| Find | Replace with |
-|------|--------------|
-| `serene-supabase` | Your project name (kebab-case) |
-| `diogomonte/serene-supabase` | Your `owner/repo` |
 
 ---
 
@@ -65,8 +35,8 @@ brew install supabase/tap/supabase
 ### 1. Clone and install dependencies
 
 ```bash
-git clone https://github.com/diogomonte/serene-supabase.git
-cd serene-supabase
+git clone https://github.com/diogomonte/matchly-supabase.git
+cd matchly-supabase
 npm install
 ```
 
@@ -206,9 +176,7 @@ This updates `src/types/supabase.ts` with the latest database schema.
 ## Project Structure
 
 ```
-serene-supabase/
-├── scripts/
-│   └── init.sh                  # Template initialization script
+matchly/
 ├── src/
 │   ├── lib/
 │   │   └── supabase.ts          # Supabase client + auth helpers
@@ -218,7 +186,6 @@ serene-supabase/
 │   ├── config.toml              # Supabase local project configuration (incl. Google OAuth)
 │   ├── seed.sql                 # Seed data for local development
 │   └── migrations/              # Your SQL migrations go here
-├── TEMPLATE_PROMPT.md           # AI prompt for creating new repos from this template
 ├── .env.example                 # Environment variable template
 └── package.json
 ```

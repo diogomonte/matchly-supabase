@@ -1,7 +1,7 @@
 {
-  "name": "serene-supabase",
+  "name": "matchly",
   "version": "1.0.0",
-  "description": "Supabase skeleton template with Google OAuth, typed TypeScript client, and migration scaffolding",
+  "description": "Match players for tennis and paddel",
   "scripts": {
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
