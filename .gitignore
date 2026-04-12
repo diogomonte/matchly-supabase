@@ -1,0 +1,29 @@
+# Environment variables — never commit real credentials
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.next/
+
+# Supabase local state — regenerated on supabase start
+supabase/.branches/
+supabase/.temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

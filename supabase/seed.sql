@@ -1,0 +1,3 @@
+-- Seed data for local development.
+-- Add your seed INSERT statements below.
+-- These run after migrations when you execute: npm run supabase:reset
