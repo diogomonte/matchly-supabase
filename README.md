@@ -1,6 +1,6 @@
 # matchly
 
-> Match players for tennis and paddel — powered by [Supabase](https://supabase.com).
+> Match players for tennis and padel — powered by [Supabase](https://supabase.com).
 
 Features:
 

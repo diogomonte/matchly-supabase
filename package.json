@@ -1,7 +1,7 @@
 {
   "name": "matchly",
   "version": "1.0.0",
-  "description": "Match players for tennis and paddel",
+  "description": "Match players for tennis and padel",
   "scripts": {
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",

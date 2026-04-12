@@ -1,6 +1,6 @@
 # matchly
 
-Match players for tennis and paddel — powered by Supabase.
+Match players for tennis and padel — powered by Supabase.
 
 See @README.md for full setup guide and @package.json for all available scripts.
 
