@@ -9,7 +9,8 @@
     "supabase:reset": "supabase db reset",
     "supabase:migrate": "supabase db push",
     "supabase:diff": "supabase db diff",
-    "supabase:generate-types": "supabase gen types typescript --local > src/types/supabase.ts"
+    "supabase:generate-types": "supabase gen types typescript --local > src/types/supabase.ts",
+    "deploy-functions": "bash supabase/scripts/deploy_functions.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1"
