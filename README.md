@@ -1,225 +1,99 @@
-# serene-supabase
+# matchly-supabase
 
-> 🧱 **Supabase Starter Template** — Clone this repo to bootstrap a new Supabase-powered application with auth, migrations, RLS, and TypeScript types ready to go.
-
-A skeleton backend template for [Supabase](https://supabase.com), featuring:
-
-- 🗄️ **Database & REST/GraphQL APIs** — auto-generated from your schema via PostgREST
-- 🔐 **Google (Gmail) OAuth** — sign-in with Google configured out of the box
-- 🚀 **Database migrations** — versioned SQL migrations managed with the Supabase CLI
-- 🔒 **Row Level Security** — RLS enabled by convention on every table
-- 📦 **Typed TypeScript client** — auto-generated types from your database schema
+Supabase backend for **Matchly** — a padel player matchmaking app. Players post match requests, a compatibility scoring engine ranks candidates, and they confirm matches with one tap. Launch city: Copenhagen.
 
 ---
 
-## Use This Template
+## Running Locally
 
-### Option 1 — GitHub "Use this template" button
-
-Click **[Use this template](https://github.com/diogomonte/serene-supabase/generate)** at the top of this repo to create a new repository, then:
-
-```bash
-git clone https://github.com/<your-owner>/<your-repo>.git
-cd <your-repo>
-chmod +x scripts/init.sh
-./scripts/init.sh
-```
-
-The interactive script replaces all project-specific placeholders (name, Supabase project ref, URLs) throughout the codebase.
-
-### Option 2 — AI-assisted setup
-
-See **[TEMPLATE_PROMPT.md](TEMPLATE_PROMPT.md)** for a ready-to-use prompt you can paste into an AI assistant to walk you through setup.
-
-### Option 3 — Manual replacement
-
-Search and replace these values in the codebase:
-
-| Find | Replace with |
-|------|--------------|
-| `serene-supabase` | Your project name (kebab-case) |
-| `diogomonte/serene-supabase` | Your `owner/repo` |
-
----
-
-## Prerequisites
+### Prerequisites
 
 | Tool | Version |
 |------|---------|
 | [Node.js](https://nodejs.org) | ≥ 18 |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop) | latest (must be running) |
 | [Supabase CLI](https://supabase.com/docs/guides/cli) | ≥ 2.x |
-| [Docker Desktop](https://www.docker.com/products/docker-desktop) | latest |
 
-Install the Supabase CLI:
+Install the Supabase CLI if you don't have it:
 
 ```bash
-npm install -g supabase
-# or via Homebrew
 brew install supabase/tap/supabase
+# or
+npm install -g supabase
 ```
 
----
-
-## Quick Start
-
-### 1. Clone and install dependencies
+### 1. Install dependencies
 
 ```bash
-git clone https://github.com/diogomonte/serene-supabase.git
-cd serene-supabase
 npm install
 ```
 
-### 2. Configure environment variables
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and fill in your Supabase project credentials. For local development, the values from `supabase status` after starting the stack are used automatically.
-
-### 3. Start the local Supabase stack
+### 2. Start the local Supabase stack
 
 ```bash
 npm run supabase:start
 ```
 
-This starts a local Supabase instance (PostgreSQL, PostgREST, GoTrue auth, Studio) using Docker. The first run will pull the necessary images.
+This starts a local Supabase instance (PostgreSQL, PostgREST, GoTrue auth, Studio) via Docker. The first run pulls the necessary images — it may take a minute.
 
-After startup, the CLI prints your local credentials:
+Local services once running:
 
-```
-API URL:          http://127.0.0.1:54321
-GraphQL URL:      http://127.0.0.1:54321/graphql/v1
-DB URL:           postgresql://postgres:postgres@127.0.0.1:54322/postgres
-Studio URL:       http://127.0.0.1:54323
-Anon Key:         <anon-key>
-Service Role Key: <service-role-key>
-```
+| Service | URL |
+|---------|-----|
+| API | `http://127.0.0.1:54321` |
+| Studio (DB explorer) | `http://127.0.0.1:54323` |
+| PostgreSQL | `127.0.0.1:54322` |
 
-### 4. Create your first migration
-
-```bash
-supabase migration new create_my_table
-```
-
-Edit the generated SQL file in `supabase/migrations/`, then reset the local DB to apply it:
+### 3. Apply migrations and seed data
 
 ```bash
 npm run supabase:reset
 ```
 
-### 5. Generate TypeScript types
+This wipes the local database and replays all migrations in `supabase/migrations/` in order, then runs `supabase/seed.sql`. After this you'll have:
+
+- `clubs` table seeded with 3 Copenhagen padel clubs
+- `profiles` table with full Phase 2 schema (levels, playstyle tags, home clubs, reliability score)
+- `public_profiles` view (safe subset, excludes phone / self_rated_level / intent)
+- `profile-photos` storage bucket with public read and owner-scoped write policies
+
+### 4. Generate TypeScript types
 
 ```bash
 npm run supabase:generate-types
 ```
 
-This updates `src/types/supabase.ts` with the latest database schema.
+Updates `src/types/supabase.ts` from the current local schema. Run this after any schema change.
 
-### 6. Use Supabase Studio
+### 5. Explore in Studio
 
-Open [http://127.0.0.1:54323](http://127.0.0.1:54323) in your browser to explore the database, run queries, and manage users.
+Open [http://127.0.0.1:54323](http://127.0.0.1:54323) to browse tables, run queries, inspect RLS policies, and manage storage.
 
----
-
-## Authentication — Google (Gmail) OAuth
-
-### Local development
-
-1. Create a project in [Google Cloud Console](https://console.cloud.google.com/apis/credentials).
-2. Add an OAuth 2.0 Client ID (Web application type).
-3. Set **Authorized redirect URIs** to:
-   ```
-   http://127.0.0.1:54321/auth/v1/callback
-   ```
-4. Copy the **Client ID** and **Client Secret** into your `.env`:
-   ```
-   GOOGLE_CLIENT_ID=<your-client-id>
-   GOOGLE_CLIENT_SECRET=<your-client-secret>
-   ```
-5. Restart the local stack:
-   ```bash
-   npm run supabase:stop && npm run supabase:start
-   ```
-
-### Production (hosted Supabase)
-
-1. In your [Supabase Dashboard](https://app.supabase.com), go to **Authentication → Providers → Google**.
-2. Enable the Google provider and paste your **Client ID** and **Client Secret**.
-3. Set the **Redirect URL** shown in the dashboard as an authorized redirect URI in Google Cloud Console.
-
-### Signing in from your app
-
-```typescript
-import { signInWithGoogle } from './src/lib/supabase'
-
-// Redirect the user to Google's OAuth consent screen
-await signInWithGoogle()
-```
-
----
-
-## Database Migrations
-
-Migrations live in `supabase/migrations/` and are applied in filename order.
-
-### Create a new migration
+### Stop the stack
 
 ```bash
-supabase migration new <migration-name>
-# e.g. supabase migration new add_posts_table
+npm run supabase:stop
 ```
-
-Edit the generated SQL file in `supabase/migrations/`, then reset the local DB to apply it:
-
-```bash
-npm run supabase:reset
-```
-
-### Generate a migration from schema changes made in Studio
-
-```bash
-npm run supabase:diff -- --file <migration-name>
-```
-
-### Push to remote
-
-```bash
-npm run supabase:migrate
-```
-
----
-
-## Generating TypeScript Types
-
-Keep your TypeScript types in sync with the database schema:
-
-```bash
-npm run supabase:generate-types
-```
-
-This updates `src/types/supabase.ts` with the latest database schema.
 
 ---
 
 ## Project Structure
 
 ```
-serene-supabase/
-├── scripts/
-│   └── init.sh                  # Template initialization script
+matchly-supabase/
 ├── src/
 │   ├── lib/
-│   │   └── supabase.ts          # Supabase client + auth helpers
+│   │   └── supabase.ts          # Typed Supabase client singleton + auth helpers
 │   └── types/
-│       └── supabase.ts          # Auto-generated TypeScript database types
+│       └── supabase.ts          # Auto-generated — never edit by hand
 ├── supabase/
-│   ├── config.toml              # Supabase local project configuration (incl. Google OAuth)
-│   ├── seed.sql                 # Seed data for local development
-│   └── migrations/              # Your SQL migrations go here
-├── TEMPLATE_PROMPT.md           # AI prompt for creating new repos from this template
-├── .env.example                 # Environment variable template
+│   ├── config.toml              # Local Supabase configuration
+│   ├── seed.sql                 # Local dev seed data
+│   └── migrations/              # Versioned SQL migrations
+├── docs/
+│   ├── PRODUCT.md               # Product definition and matching algorithm
+│   ├── data_model.md            # Authoritative schema reference
+│   └── PHASE_*.md               # Phase-by-phase implementation plans
 └── package.json
 ```
 
@@ -231,11 +105,19 @@ serene-supabase/
 |--------|-------------|
 | `npm run supabase:start` | Start the local Supabase stack |
 | `npm run supabase:stop` | Stop the local Supabase stack |
-| `npm run supabase:status` | Show local stack status and credentials |
-| `npm run supabase:reset` | Reset the local DB and re-run all migrations |
-| `npm run supabase:migrate` | Push pending migrations to the remote project |
-| `npm run supabase:diff` | Diff local schema against the shadow database |
-| `npm run supabase:generate-types` | Regenerate TypeScript types from the local schema |
+| `npm run supabase:reset` | Wipe local DB and re-apply all migrations + seed |
+| `npm run supabase:migrate` | Push pending migrations to the hosted Supabase project |
+| `npm run supabase:diff` | Diff local schema against the shadow DB (generates migration SQL) |
+| `npm run supabase:generate-types` | Regenerate `src/types/supabase.ts` from current schema |
+
+---
+
+## Database Conventions
+
+- Migration files: `YYYYMMDDHHMMSS_description.sql`, one logical change per file
+- Every table has RLS enabled; explicit SELECT / INSERT / UPDATE / DELETE policies
+- Never edit a migration already pushed to production — create a new one instead
+- After any schema change: run `npm run supabase:generate-types`
 
 ---
 
