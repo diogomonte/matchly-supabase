@@ -14,13 +14,14 @@ Supabase backend for **Matchly** — a padel player matchmaking app. Players pos
 | [Docker Desktop](https://www.docker.com/products/docker-desktop) | latest (must be running) |
 | [Supabase CLI](https://supabase.com/docs/guides/cli) | ≥ 2.x |
 
-Install the Supabase CLI if you don't have it:
+Install the prerequisites via Homebrew:
 
 ```bash
+brew install node
 brew install supabase/tap/supabase
-# or
-npm install -g supabase
 ```
+
+Docker Desktop must be installed separately — download it from [docker.com](https://www.docker.com/products/docker-desktop) and make sure it is running before starting the stack.
 
 ### 1. Install dependencies
 

@@ -18,7 +18,7 @@ CREATE POLICY "profile-photos: authenticated insert own folder"
   TO authenticated
   WITH CHECK (
     bucket_id = 'profile-photos'
-    AND storage.foldername(name)[1] = auth.uid()::text
+    AND (storage.foldername(name))[1] = auth.uid()::text
   );
 
 -- Owners may update their own objects
@@ -28,7 +28,7 @@ CREATE POLICY "profile-photos: owner update"
   TO authenticated
   USING (
     bucket_id = 'profile-photos'
-    AND storage.foldername(name)[1] = auth.uid()::text
+    AND (storage.foldername(name))[1] = auth.uid()::text
   );
 
 -- Owners may delete their own objects
@@ -38,5 +38,5 @@ CREATE POLICY "profile-photos: owner delete"
   TO authenticated
   USING (
     bucket_id = 'profile-photos'
-    AND storage.foldername(name)[1] = auth.uid()::text
+    AND (storage.foldername(name))[1] = auth.uid()::text
   );
