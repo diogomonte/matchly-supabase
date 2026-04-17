@@ -16,7 +16,6 @@ Tied 1:1 to `auth.users`. Auto-created via trigger on signup.
 | `phone` | text | From auth, never exposed to other users |
 | `display_name` | text | |
 | `photo_url` | text | Supabase Storage URL |
-| `home_club_ids` | uuid[] | Max 2, FK to `clubs.id` |
 | `self_rated_level` | numeric(2,1) | 1.0–5.0 |
 | `calibrated_level` | numeric(2,1) | Starts = self_rated, updated by feedback (Phase 4) |
 | `playstyle_tags` | text[] | Max 3, from fixed enum |
