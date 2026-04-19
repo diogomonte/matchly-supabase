@@ -110,6 +110,33 @@ All test users use OTP code **`123456`** (no real SMS sent — codes are interce
 
 ---
 
+## Production setup
+
+After the first `make deploy`, run these two commands once to enable phone OTP on the hosted project:
+
+**1. Fill in your Twilio credentials**
+
+```bash
+cp .env.production.example .env.production
+# edit .env.production with real Account SID, Messaging Service SID, Auth Token
+```
+
+Get the values from [console.twilio.com](https://console.twilio.com):
+- **Account SID** — Dashboard home, starts with `AC`
+- **Auth Token** — Dashboard home, click to reveal
+- **Messaging Service SID** — Messaging → Services, starts with `MG`
+
+**2. Upload secrets and push auth config**
+
+```bash
+make secrets          # uploads Twilio credentials to the hosted project
+make configure-auth   # pushes config.toml auth settings (enables phone OTP)
+```
+
+These only need to be re-run if credentials change. Migrations and functions are deployed independently via `make deploy`.
+
+---
+
 ## Mock server (no Supabase needed)
 
 A WireMock server stubs the full API for frontend development without running the Supabase stack at all. See [`wiremock/README.md`](wiremock/README.md) for setup instructions.

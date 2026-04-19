@@ -119,9 +119,9 @@ enable_signup = true
 enable_confirmations = true
 template = "Your code is {{ .Code }} ."
 
-# Dummy Twilio config — satisfies the "has a provider" check so phone login
-# is not disabled. GoTrue intercepts test_otp numbers before calling Twilio,
-# so the fake credentials are never actually used.
+# Dummy values keep the CLI happy locally so phone login is not disabled.
+# Production credentials are pushed directly via the Management API:
+# run `make configure-auth` after filling in .env.production.
 [auth.sms.twilio]
 account_sid = "local_test"
 message_service_sid = "local_test"
@@ -129,32 +129,18 @@ auth_token = "local_test"
 
 # Hardcoded OTPs for local E2E testing (code: 123456 for all seed users).
 [auth.sms.test_otp]
-"+4511111111" = "123456"
-"+4522222222" = "123456"
-"+4533333333" = "123456"
-"+4544444444" = "123456"
-"+4555555555" = "123456"
+"4553658982" = "123456"
+"4511111111" = "123456"
+"4522222222" = "123456"
+"4533333333" = "123456"
+"4544444444" = "123456"
+"4555555555" = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]
 # timebox = "24h"
 # inactivity_timeout = "8h"
 
-# Use an external OAuth provider.
-# The full list of providers are: `apple`, `azure`, `bitbucket`, `discord`, `facebook`, `github`,
-# `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`, `twitter`, `slack`, `spotify`,
-# `workos`, `zoom`.
-[auth.external.google]
-enabled = true
-client_id = "env(GOOGLE_CLIENT_ID)"
-secret = "env(GOOGLE_CLIENT_SECRET)"
-# Overrides the default auth redirectUrl.
-redirect_uri = ""
-# Overrides the default auth provider URL. Used to support self-hosted gitlab, single-tenant Azure,
-# or any other third-party OIDC compatible provider.
-url = ""
-# If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
-skip_nonce_check = false
 
 [analytics]
 enabled = false

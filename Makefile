@@ -45,6 +45,8 @@ help:
 	@echo "  $(CYAN)make deploy$(RESET)         Full deploy: migrate DB + all edge functions"
 	@echo "  $(CYAN)make migrate$(RESET)        Push pending DB migrations only"
 	@echo "  $(CYAN)make functions$(RESET)      Deploy all edge functions only"
+	@echo "  $(CYAN)make secrets$(RESET)        Upload .env.production secrets to hosted project"
+	@echo "  $(CYAN)make configure-auth$(RESET) Push config.toml auth settings (enables phone OTP)"
 	@echo ""
 	@echo "$(BOLD)Local dev$(RESET)"
 	@echo "  $(CYAN)make dev$(RESET)            Start local Supabase stack (Docker)"
@@ -81,6 +83,31 @@ endif
 deploy: check-link migrate functions
 	@echo ""
 	@echo "$(GREEN)$(BOLD)✓ Deploy complete$(RESET)"
+	@echo "  First time? Run: make secrets && make configure-auth"
+
+## Upload edge function secrets to the hosted project.
+## Reads from .env.production. Note: this stores Deno runtime env vars for
+## edge functions — it does NOT configure auth provider credentials.
+## Auth provider credentials (Twilio) are pushed via make configure-auth.
+secrets: check-link
+	@test -f .env.production || (echo "$(RED).env.production not found. Copy .env.production.example and fill in real values.$(RESET)" && exit 1)
+	@echo "$(BOLD)Uploading edge function secrets to hosted project…$(RESET)"
+	supabase secrets set --env-file .env.production
+	@echo "$(GREEN)✓ Secrets uploaded$(RESET)"
+
+## Enable phone OTP on the hosted project via the Supabase Management API.
+## Reads TWILIO_* and SUPABASE_ACCESS_TOKEN from .env.production.
+## Get your access token at: https://supabase.com/dashboard/account/tokens
+configure-auth: check-link
+	@test -f .env.production || (echo "$(RED).env.production not found. Copy .env.production.example and fill in values.$(RESET)" && exit 1)
+	@echo "$(BOLD)Configuring phone OTP on hosted project via Management API…$(RESET)"
+	@set -a && . ./.env.production && set +a && \
+	RESULT=$$(curl -sf -X PATCH "https://api.supabase.com/v1/projects/$(PROJECT_REF)/config/auth" \
+	  -H "Authorization: Bearer $$SUPABASE_ACCESS_TOKEN" \
+	  -H "Content-Type: application/json" \
+	  -d "{\"sms_provider\":\"twilio\",\"sms_twilio_account_sid\":\"$$TWILIO_ACCOUNT_SID\",\"sms_twilio_auth_token\":\"$$TWILIO_AUTH_TOKEN\",\"sms_twilio_message_service_sid\":\"$$TWILIO_MESSAGE_SERVICE_SID\",\"phone_autoconfirm\":false}" 2>&1) || \
+	  (echo "$(RED)API call failed: $$RESULT$(RESET)" && exit 1)
+	@echo "$(GREEN)✓ Phone OTP enabled — check Authentication → Providers → Phone in the dashboard$(RESET)"
 
 ## Push all pending migrations to the hosted project.
 migrate: check-link
@@ -101,9 +128,11 @@ functions: check-link
 # ── Local dev ─────────────────────────────────────────────────────────────────
 
 ## Start the local Supabase stack.
+## Sources supabase/.env so the auth container picks up the TWILIO_* vars
+## and phone login is not disabled locally.
 dev:
 	@echo "$(BOLD)Starting local Supabase stack…$(RESET)"
-	supabase start
+	@set -a && . ./supabase/.env && set +a && supabase start
 
 ## Serve edge functions locally (run in a second terminal alongside make dev).
 dev-functions:
@@ -113,7 +142,7 @@ dev-functions:
 ## Wipe the local DB and re-apply all migrations and seed data.
 reset:
 	@echo "$(BOLD)Resetting local database…$(RESET)"
-	supabase db reset
+	@set -a && . ./supabase/.env && set +a && supabase db reset
 	@echo "$(GREEN)✓ Database reset with seed data$(RESET)"
 
 ## Print local service URLs and API keys.
