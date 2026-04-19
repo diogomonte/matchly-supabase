@@ -32,6 +32,10 @@ function json(body: unknown, status = 200): Response {
   })
 }
 
+// Local dev: when no Authorization header is provided and the stack is running
+// on 127.0.0.1, fall back to this seed user so the API is usable without auth.
+const LOCAL_DEV_USER_ID = 'aaaaaaaa-0000-0000-0000-000000000001'
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
@@ -39,16 +43,30 @@ Deno.serve(async (req: Request) => {
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return json({ error: 'Missing Authorization header' }, 401)
+  const isLocal = Deno.env.get('LOCAL_DEV') === 'true'
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+  const isAnonKeyBearer = authHeader === `Bearer ${anonKey}`
 
-  const anonClient = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  )
+  let userId: string
+  let anonClient: ReturnType<typeof createClient>
 
-  const { data: { user }, error: authError } = await anonClient.auth.getUser()
-  if (authError || !user) return json({ error: 'Unauthorized' }, 401)
+  if (isLocal && (!authHeader || isAnonKeyBearer)) {
+    userId = LOCAL_DEV_USER_ID
+    anonClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+  } else {
+    if (!authHeader) return json({ error: 'Missing Authorization header' }, 401)
+    anonClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    )
+    const { data: { user }, error: authError } = await anonClient.auth.getUser()
+    if (authError || !user) return json({ error: 'Unauthorized' }, 401)
+    userId = userId
+  }
 
   // ── Parse body ──────────────────────────────────────────────────────────────
   let request_id: string
@@ -80,7 +98,7 @@ Deno.serve(async (req: Request) => {
 
   if (requestError || !matchRequest) return json({ error: 'Match request not found' }, 404)
   if (matchRequest.status !== 'open') return json({ error: 'Match request is no longer open' }, 409)
-  if (matchRequest.creator_id === user.id) return json({ error: 'Cannot propose a match on your own request' }, 400)
+  if (matchRequest.creator_id === userId) return json({ error: 'Cannot propose a match on your own request' }, 400)
 
   // Validate scheduled_at is inside the tstzrange window.
   // proposed_window is returned as a string like '[2026-04-20 09:00:00+00,2026-04-20 11:00:00+00)'
@@ -106,7 +124,7 @@ Deno.serve(async (req: Request) => {
     .from('matches')
     .insert({
       request_id: matchRequest.id,
-      host_id: user.id,
+      host_id: userId,
       club_id: matchRequest.club_id,
       scheduled_at,
       format: 'singles',
@@ -128,7 +146,7 @@ Deno.serve(async (req: Request) => {
     .insert([
       {
         match_id: matchId,
-        user_id: user.id,
+        user_id: userId,
         team: 1,
         role: 'host',
         status: 'confirmed',
@@ -160,7 +178,7 @@ Deno.serve(async (req: Request) => {
     // Non-fatal: match was created. Log and continue.
   }
 
-  console.log(`propose_match: match ${matchId} created by user ${user.id} for request ${request_id}`)
+  console.log(`propose_match: match ${matchId} created by user ${userId} for request ${request_id}`)
 
   return json({ data: { match_id: matchId } }, 201)
 })

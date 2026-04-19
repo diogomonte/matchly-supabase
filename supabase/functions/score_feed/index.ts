@@ -26,6 +26,10 @@ function json(body: unknown, status = 200): Response {
   })
 }
 
+// Local dev: when no Authorization header is provided and the stack is running
+// on 127.0.0.1, fall back to this seed user so the API is usable without auth.
+const LOCAL_DEV_USER_ID = 'aaaaaaaa-0000-0000-0000-000000000001'
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
@@ -35,22 +39,36 @@ Deno.serve(async (req: Request) => {
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   const authHeader = req.headers.get('Authorization')
-  if (!authHeader) return json({ error: 'Missing Authorization header' }, 401)
+  const isLocal = Deno.env.get('LOCAL_DEV') === 'true'
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+  const isAnonKeyBearer = authHeader === `Bearer ${anonKey}`
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  )
+  let userId: string
+  let supabase: ReturnType<typeof createClient>
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return json({ error: 'Unauthorized' }, 401)
+  if (isLocal && (!authHeader || isAnonKeyBearer)) {
+    userId = LOCAL_DEV_USER_ID
+    supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+  } else {
+    if (!authHeader) return json({ error: 'Missing Authorization header' }, 401)
+    supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    )
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) return json({ error: 'Unauthorized' }, 401)
+    userId = userId
+  }
 
   // ── Caller profile ────────────────────────────────────────────────────────
   const { data: me, error: profileError } = await supabase
     .from('profiles')
     .select('id, calibrated_level, playstyle_tags, home_club_ids, intent, reliability_score')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   if (profileError || !me) return json({ error: 'Profile not found' }, 404)
@@ -59,7 +77,7 @@ Deno.serve(async (req: Request) => {
   const { data: blocksData } = await supabase
     .from('soft_blocks')
     .select('blocked_id')
-    .eq('blocker_id', user.id)
+    .eq('blocker_id', userId)
     .gt('expires_at', new Date().toISOString())
 
   const blockedIds = new Set<string>((blocksData ?? []).map((b: { blocked_id: string }) => b.blocked_id))
@@ -87,7 +105,7 @@ Deno.serve(async (req: Request) => {
       )
     `)
     .eq('status', 'open')
-    .neq('creator_id', user.id)
+    .neq('creator_id', userId)
     .limit(200)
 
   if (me.home_club_ids?.length > 0) {
@@ -160,7 +178,7 @@ Deno.serve(async (req: Request) => {
     .slice(0, 50)
 
   const elapsed = Date.now() - start
-  console.log(`score_feed: ${scored.length} results in ${elapsed}ms for user ${user.id}`)
+  console.log(`score_feed: ${scored.length} results in ${elapsed}ms for user ${userId}`)
 
   return json({ data: scored, meta: { elapsed_ms: elapsed } })
 })

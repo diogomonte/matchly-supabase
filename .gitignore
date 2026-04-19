@@ -3,6 +3,9 @@
 .env.local
 .env.*.local
 
+# Supabase project link — contains the hosted project ref, local to each dev
+.supabase-project
+
 # Dependencies
 node_modules/
 

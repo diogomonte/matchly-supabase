@@ -37,13 +37,12 @@ npm run supabase:start
 
 This starts a local Supabase instance (PostgreSQL, PostgREST, GoTrue auth, Studio) via Docker. The first run pulls the necessary images — it may take a minute.
 
-Local services once running:
-
 | Service | URL |
 |---------|-----|
 | API | `http://127.0.0.1:54321` |
 | Studio (DB explorer) | `http://127.0.0.1:54323` |
 | PostgreSQL | `127.0.0.1:54322` |
+| Mailpit (OTP inbox) | `http://127.0.0.1:54324` |
 
 ### 3. Apply migrations and seed data
 
@@ -51,14 +50,21 @@ Local services once running:
 npm run supabase:reset
 ```
 
-This wipes the local database and replays all migrations in `supabase/migrations/` in order, then runs `supabase/seed.sql`. After this you'll have:
+Wipes the local DB, replays all migrations, and runs `supabase/seed.sql`. After this you have 5 test users, 3 clubs, open match requests, and sample matches ready to use.
 
-- `clubs` table seeded with 3 Copenhagen padel clubs
-- `profiles` table with full Phase 2 schema (levels, playstyle tags, home clubs, reliability score)
-- `public_profiles` view (safe subset, excludes phone / self_rated_level / intent)
-- `profile-photos` storage bucket with public read and owner-scoped write policies
+**RLS is disabled locally** (via `seed.sql`) so the REST API and edge functions are accessible without authentication — see [Local auth behaviour](#local-auth-behaviour) below.
 
-### 4. Generate TypeScript types
+### 4. Serve edge functions
+
+In a second terminal:
+
+```bash
+npx supabase functions serve --no-verify-jwt --env-file supabase/.env
+```
+
+Edge functions are then available at `http://127.0.0.1:54321/functions/v1/<name>`.
+
+### 5. Generate TypeScript types
 
 ```bash
 npm run supabase:generate-types
@@ -66,7 +72,7 @@ npm run supabase:generate-types
 
 Updates `src/types/supabase.ts` from the current local schema. Run this after any schema change.
 
-### 5. Explore in Studio
+### 6. Explore in Studio
 
 Open [http://127.0.0.1:54323](http://127.0.0.1:54323) to browse tables, run queries, inspect RLS policies, and manage storage.
 
@@ -75,6 +81,38 @@ Open [http://127.0.0.1:54323](http://127.0.0.1:54323) to browse tables, run quer
 ```bash
 npm run supabase:stop
 ```
+
+---
+
+## Local auth behaviour
+
+Authentication is intentionally disabled for local development so you can call every endpoint without a JWT:
+
+| Layer | What's disabled | How |
+|-------|----------------|-----|
+| REST API | RLS on all tables | `seed.sql` runs `ALTER TABLE … DISABLE ROW LEVEL SECURITY` |
+| Edge functions (gateway) | JWT signature check | `verify_jwt = false` in `config.toml` |
+| Edge functions (in-code) | Auth header requirement | When `LOCAL_DEV=true` (set in `supabase/.env`) and no `Authorization` header is sent, functions act as seed user `aaaaaaaa-…-0001` (Marco Rossi) |
+
+None of this affects the hosted project — `seed.sql` never runs in production, the `config.toml` local sections are ignored by `supabase deploy`, and `supabase/.env` is a local-only file.
+
+### Test users
+
+All test users use OTP code **`123456`** (no real SMS sent — codes are intercepted locally).
+
+| Name | Phone | User ID |
+|------|-------|---------|
+| Marco Rossi *(default dev user)* | `+4511111111` | `aaaaaaaa-0000-0000-0000-000000000001` |
+| Anna Larsen | `+4522222222` | `aaaaaaaa-0000-0000-0000-000000000002` |
+| Lars Nielsen | `+4533333333` | `aaaaaaaa-0000-0000-0000-000000000003` |
+| Sofie Andersen | `+4544444444` | `aaaaaaaa-0000-0000-0000-000000000004` |
+| Tobias Møller | `+4555555555` | `aaaaaaaa-0000-0000-0000-000000000005` |
+
+---
+
+## Mock server (no Supabase needed)
+
+A WireMock server stubs the full API for frontend development without running the Supabase stack at all. See [`wiremock/README.md`](wiremock/README.md) for setup instructions.
 
 ---
 
@@ -88,10 +126,16 @@ matchly-supabase/
 │   └── types/
 │       └── supabase.ts          # Auto-generated — never edit by hand
 ├── supabase/
-│   ├── config.toml              # Local Supabase configuration
-│   ├── seed.sql                 # Local dev seed data
+│   ├── config.toml              # Local Supabase configuration (auth, SMS, edge fn JWT)
+│   ├── seed.sql                 # Local dev seed data + RLS disable
+│   ├── .env                     # Local edge function env vars (LOCAL_DEV=true)
+│   ├── functions/               # Edge functions (Deno)
 │   └── migrations/              # Versioned SQL migrations
+├── wiremock/
+│   ├── mappings/                # WireMock stub files (one per resource)
+│   └── README.md                # How to run the mock server
 ├── docs/
+│   ├── API.md                   # HTTP reference for all endpoints
 │   ├── PRODUCT.md               # Product definition and matching algorithm
 │   ├── data_model.md            # Authoritative schema reference
 │   └── PHASE_*.md               # Phase-by-phase implementation plans

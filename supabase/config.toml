@@ -115,9 +115,25 @@ enable_confirmations = false
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
-enable_signup = false
-enable_confirmations = false
+enable_signup = true
+enable_confirmations = true
 template = "Your code is {{ .Code }} ."
+
+# Dummy Twilio config — satisfies the "has a provider" check so phone login
+# is not disabled. GoTrue intercepts test_otp numbers before calling Twilio,
+# so the fake credentials are never actually used.
+[auth.sms.twilio]
+account_sid = "local_test"
+message_service_sid = "local_test"
+auth_token = "local_test"
+
+# Hardcoded OTPs for local E2E testing (code: 123456 for all seed users).
+[auth.sms.test_otp]
+"+4511111111" = "123456"
+"+4522222222" = "123456"
+"+4533333333" = "123456"
+"+4544444444" = "123456"
+"+4555555555" = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]
@@ -145,3 +161,17 @@ enabled = false
 port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
+
+# Local dev only: disable JWT verification so edge functions are callable
+# without a valid Bearer token. This block has no effect on hosted Supabase.
+[functions.score_feed]
+verify_jwt = false
+
+[functions.propose_match]
+verify_jwt = false
+
+[functions.send_match_proposal_notification]
+verify_jwt = false
+
+[functions.send_match_confirmed_notification]
+verify_jwt = false
