@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
     )
     const { data: { user }, error: authError } = await anonClient.auth.getUser()
     if (authError || !user) return json({ error: 'Unauthorized' }, 401)
-    userId = userId
+    userId = user.id
   }
 
   // ── Parse body ──────────────────────────────────────────────────────────────
