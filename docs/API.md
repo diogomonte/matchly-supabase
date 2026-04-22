@@ -448,14 +448,17 @@ Edge functions require only `Authorization` — no `apikey` header needed.
 
 ### 4.1 `score_feed` — Ranked match feed
 
-Returns up to 50 open match requests scored by compatibility with the caller's profile.
+Returns the caller's own open requests and a scored feed of other users' open requests.
 
 **Score formula:** `0.5 × level_score + 0.25 × playstyle_score + 0.25 × reliability_score`
+
+**Hard filters applied to `feed` before scoring:**
+- Creator must not be soft-blocked by the caller
+- Intent must be compatible: `social` and `competitive` are mutually exclusive; `both` matches anything
 
 ```
 POST http://127.0.0.1:54321/functions/v1/score_feed
 Authorization: Bearer <access_token>
-Content-Type: application/json
 ```
 
 Body: empty (user identity comes from the JWT).
@@ -463,32 +466,57 @@ Body: empty (user identity comes from the JWT).
 **Response 200**
 ```json
 {
-  "data": [
-    {
-      "id": "uuid",
-      "creator_id": "uuid",
-      "club_id": "uuid",
-      "proposed_window": "[\"2026-04-20 09:00:00+00\",\"2026-04-20 11:00:00+00\")",
-      "status": "open",
-      "created_at": "2026-04-20T07:00:00Z",
-      "score": 87.5,
-      "creator": {
+  "data": {
+    "own": [
+      {
         "id": "uuid",
-        "display_name": "Anna Larsen",
-        "photo_url": "...",
-        "calibrated_level": 3.5,
-        "playstyle_tags": ["Consistent", "Defensive"],
-        "reliability_score": 0.98
+        "creator_id": "uuid",
+        "club_id": "uuid",
+        "proposed_window": "[\"2026-04-20 09:00:00+00\",\"2026-04-20 11:00:00+00\")",
+        "proposed_at": "2026-04-20T08:00:00Z",
+        "status": "open",
+        "created_at": "2026-04-20T07:00:00Z",
+        "creator": {
+          "id": "uuid",
+          "display_name": "Marco Rossi",
+          "photo_url": "...",
+          "calibrated_level": 3.5,
+          "playstyle_tags": ["Aggressive", "NetPlayer"],
+          "reliability_score": 1.0,
+          "intent": "competitive"
+        }
       }
-    }
-  ],
+    ],
+    "feed": [
+      {
+        "id": "uuid",
+        "creator_id": "uuid",
+        "club_id": "uuid",
+        "proposed_window": "[\"2026-04-20 09:00:00+00\",\"2026-04-20 11:00:00+00\")",
+        "proposed_at": "2026-04-20T07:30:00Z",
+        "status": "open",
+        "created_at": "2026-04-20T07:00:00Z",
+        "score": 87.5,
+        "creator": {
+          "id": "uuid",
+          "display_name": "Anna Larsen",
+          "photo_url": "...",
+          "calibrated_level": 3.5,
+          "playstyle_tags": ["Consistent", "Defensive"],
+          "reliability_score": 0.98,
+          "intent": "both"
+        }
+      }
+    ]
+  },
   "meta": {
     "elapsed_ms": 115
   }
 }
 ```
 
-Results are sorted by `score` descending. The caller's own requests and soft-blocked users are excluded automatically.
+- `own` — caller's own open requests, ordered by `proposed_at` ascending. No `score` field.
+- `feed` — up to 50 other users' open requests after filtering, ordered by `score` descending.
 
 **Error responses:**
 

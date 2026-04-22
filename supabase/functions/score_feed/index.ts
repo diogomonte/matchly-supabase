@@ -1,13 +1,14 @@
 /**
  * score_feed — ranked match-request feed for the calling user.
  *
- * Returns up to 50 open match requests scored by compatibility:
+ * Returns:
+ *   own  — caller's own open requests ordered by proposed_at ASC (no scoring)
+ *   feed — other users' open requests scored by compatibility, top 50
+ *
+ * Feed score formula:
  *   total = 0.5 × level_score + 0.25 × playstyle_score + 0.25 × reliability_score
  *
- * Hard filters applied before scoring (cheaper):
- *   - Not created by the caller
- *   - In one of the caller's home clubs (if set)
- *   - Proposed window end is in the future
+ * Hard filters applied to feed before scoring (cheaper):
  *   - Not soft-blocked by the caller
  *   - Intent compatible (social ↔ competitive excluded; both = any)
  */
@@ -29,6 +30,25 @@ function json(body: unknown, status = 200): Response {
 // Local dev: when no Authorization header is provided and the stack is running
 // on 127.0.0.1, fall back to this seed user so the API is usable without auth.
 const LOCAL_DEV_USER_ID = 'aaaaaaaa-0000-0000-0000-000000000001'
+
+const REQUEST_SELECT = `
+  id,
+  creator_id,
+  club_id,
+  proposed_window,
+  proposed_at,
+  status,
+  created_at,
+  creator:public_profiles!creator_id(
+    id,
+    display_name,
+    photo_url,
+    calibrated_level,
+    playstyle_tags,
+    reliability_score,
+    intent
+  )
+`
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -61,71 +81,65 @@ Deno.serve(async (req: Request) => {
     )
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) return json({ error: 'Unauthorized' }, 401)
-    userId = userId
+    userId = user.id
   }
 
-  // ── Caller profile ────────────────────────────────────────────────────────
-  const { data: me, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, calibrated_level, playstyle_tags, home_club_ids, intent, reliability_score')
-    .eq('id', userId)
-    .single()
+  // ── Caller profile + soft blocks (parallel) ───────────────────────────────
+  const [profileResult, blocksResult] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('id, calibrated_level, playstyle_tags, intent, reliability_score')
+      .eq('id', userId)
+      .single(),
+    supabase
+      .from('soft_blocks')
+      .select('blocked_id')
+      .eq('blocker_id', userId)
+      .gt('expires_at', new Date().toISOString()),
+  ])
 
-  if (profileError || !me) return json({ error: 'Profile not found' }, 404)
+  if (profileResult.error || !profileResult.data) {
+    return json({ error: 'Profile not found' }, 404)
+  }
+  const me = profileResult.data
+  const blockedIds = new Set<string>(
+    (blocksResult.data ?? []).map((b: { blocked_id: string }) => b.blocked_id),
+  )
 
-  // ── Soft blocks ───────────────────────────────────────────────────────────
-  const { data: blocksData } = await supabase
-    .from('soft_blocks')
-    .select('blocked_id')
-    .eq('blocker_id', userId)
-    .gt('expires_at', new Date().toISOString())
-
-  const blockedIds = new Set<string>((blocksData ?? []).map((b: { blocked_id: string }) => b.blocked_id))
-
-  // ── Open requests ─────────────────────────────────────────────────────────
-  // Fetch up to 200 candidates; hard filters reduce this before scoring.
-  // tstzrange upper bound is stored as the exclusive end of the interval.
-  let query = supabase
+  // ── Own open requests + others' open requests (parallel) ──────────────────
+  let othersQuery = supabase
     .from('match_requests')
-    .select(`
-      id,
-      creator_id,
-      club_id,
-      proposed_window,
-      status,
-      created_at,
-      creator:profiles!inner(
-        id,
-        display_name,
-        photo_url,
-        calibrated_level,
-        playstyle_tags,
-        reliability_score,
-        intent
-      )
-    `)
+    .select(REQUEST_SELECT)
     .eq('status', 'open')
     .neq('creator_id', userId)
     .limit(200)
 
-  if (me.home_club_ids?.length > 0) {
-    query = query.in('club_id', me.home_club_ids)
+  const [ownResult, othersResult, pairingsResult] = await Promise.all([
+    supabase
+      .from('match_requests')
+      .select(REQUEST_SELECT)
+      .eq('status', 'open')
+      .eq('creator_id', userId)
+      .order('proposed_at', { ascending: true }),
+    othersQuery,
+    supabase
+      .from('playstyle_pairings')
+      .select('style_a, style_b, score'),
+  ])
+
+  if (ownResult.error) {
+    console.error('score_feed: own-requests query failed', ownResult.error)
+    return json({ error: 'Failed to load own requests' }, 500)
   }
 
-  const { data: requests, error: feedError } = await query
-
-  if (feedError) {
-    console.error('score_feed: feed query failed', feedError)
+  if (othersResult.error) {
+    console.error('score_feed: feed query failed', othersResult.error)
     return json({ error: 'Failed to load feed' }, 500)
   }
 
-  // ── Playstyle pairings ────────────────────────────────────────────────────
-  const { data: pairingsData } = await supabase
-    .from('playstyle_pairings')
-    .select('style_a, style_b, score')
-
+  // ── Playstyle pairing lookup ──────────────────────────────────────────────
   const pairings = new Map<string, number>()
-  for (const p of pairingsData ?? []) {
+  for (const p of pairingsResult.data ?? []) {
     pairings.set(`${p.style_a}|${p.style_b}`, p.score)
   }
 
@@ -150,12 +164,12 @@ Deno.serve(async (req: Request) => {
     return mine === theirs
   }
 
-  // ── Score + filter ────────────────────────────────────────────────────────
+  // ── Score + filter feed ───────────────────────────────────────────────────
   const myLevel = me.calibrated_level ?? 3.0
   const myTags: string[] = me.playstyle_tags ?? []
   const myIntent: string | null = me.intent
 
-  const scored = (requests ?? [])
+  const scoredFeed = (othersResult.data ?? [])
     .filter((r: any) => {
       if (blockedIds.has(r.creator_id)) return false
       if (!intentCompatible(myIntent, r.creator?.intent ?? null)) return false
@@ -177,8 +191,15 @@ Deno.serve(async (req: Request) => {
     .sort((a: any, b: any) => b.score - a.score)
     .slice(0, 50)
 
-  const elapsed = Date.now() - start
-  console.log(`score_feed: ${scored.length} results in ${elapsed}ms for user ${userId}`)
+  const own = ownResult.data ?? []
 
-  return json({ data: scored, meta: { elapsed_ms: elapsed } })
+  const elapsed = Date.now() - start
+  console.log(
+    `score_feed: own=${own.length} feed=${scoredFeed.length} in ${elapsed}ms for user ${userId}`,
+  )
+
+  return json({
+    data: { own, feed: scoredFeed },
+    meta: { elapsed_ms: elapsed },
+  })
 })

@@ -268,3 +268,120 @@ INSERT INTO public.matches (id, request_id, host_id, club_id, scheduled_at, form
 INSERT INTO public.match_participants (match_id, user_id, team, role, status, responded_at) VALUES
   ('cccccccc-0000-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000005', 1, 'host',    'confirmed', now()),
   ('cccccccc-0000-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000004', 2, 'invited', 'confirmed', now());
+
+-- -----------------------------------------------------------------------------
+-- 6. A full week of pending match proposals for Marco (main tester)
+--    Different players propose to Marco's open requests each day (Wed–Sun).
+--    Marco is always the invited player, so his inbox shows all 5 proposals.
+-- -----------------------------------------------------------------------------
+
+-- Mark Marco's existing Wednesday open request as matched
+UPDATE public.match_requests
+SET status = 'matched'
+WHERE id = 'bbbbbbbb-0000-0000-0000-000000000005';
+
+-- Marco's match requests for the rest of the week (already in matched state)
+INSERT INTO public.match_requests (id, creator_id, club_id, proposed_window, status) VALUES
+  -- Thursday
+  (
+    'bbbbbbbb-0000-0000-0000-000000000008',
+    'aaaaaaaa-0000-0000-0000-000000000001',
+    (SELECT id FROM public.clubs WHERE name = 'Padelhuset'),
+    '[2026-04-23 09:00:00+00, 2026-04-23 11:00:00+00)',
+    'matched'
+  ),
+  -- Friday
+  (
+    'bbbbbbbb-0000-0000-0000-000000000009',
+    'aaaaaaaa-0000-0000-0000-000000000001',
+    (SELECT id FROM public.clubs WHERE name = 'Copenhagen Padel Center'),
+    '[2026-04-24 17:00:00+00, 2026-04-24 19:00:00+00)',
+    'matched'
+  ),
+  -- Saturday
+  (
+    'bbbbbbbb-0000-0000-0000-000000000010',
+    'aaaaaaaa-0000-0000-0000-000000000001',
+    (SELECT id FROM public.clubs WHERE name = 'Padel Club København'),
+    '[2026-04-25 10:00:00+00, 2026-04-25 12:00:00+00)',
+    'matched'
+  ),
+  -- Sunday
+  (
+    'bbbbbbbb-0000-0000-0000-000000000011',
+    'aaaaaaaa-0000-0000-0000-000000000001',
+    (SELECT id FROM public.clubs WHERE name = 'Padelhuset'),
+    '[2026-04-26 14:00:00+00, 2026-04-26 16:00:00+00)',
+    'matched'
+  );
+
+-- Proposed matches — one per day, each from a different player
+INSERT INTO public.matches (id, request_id, host_id, club_id, scheduled_at, format, status) VALUES
+  -- Wednesday: Anna proposes to Marco's existing request
+  (
+    'cccccccc-0000-0000-0000-000000000003',
+    'bbbbbbbb-0000-0000-0000-000000000005',
+    'aaaaaaaa-0000-0000-0000-000000000002',
+    (SELECT id FROM public.clubs WHERE name = 'Padel Club København'),
+    '2026-04-22 10:00:00+00',
+    'singles',
+    'pending'
+  ),
+  -- Thursday: Lars proposes
+  (
+    'cccccccc-0000-0000-0000-000000000004',
+    'bbbbbbbb-0000-0000-0000-000000000008',
+    'aaaaaaaa-0000-0000-0000-000000000003',
+    (SELECT id FROM public.clubs WHERE name = 'Padelhuset'),
+    '2026-04-23 09:30:00+00',
+    'singles',
+    'pending'
+  ),
+  -- Friday: Sofie proposes
+  (
+    'cccccccc-0000-0000-0000-000000000005',
+    'bbbbbbbb-0000-0000-0000-000000000009',
+    'aaaaaaaa-0000-0000-0000-000000000004',
+    (SELECT id FROM public.clubs WHERE name = 'Copenhagen Padel Center'),
+    '2026-04-24 17:30:00+00',
+    'singles',
+    'pending'
+  ),
+  -- Saturday: Tobias proposes
+  (
+    'cccccccc-0000-0000-0000-000000000006',
+    'bbbbbbbb-0000-0000-0000-000000000010',
+    'aaaaaaaa-0000-0000-0000-000000000005',
+    (SELECT id FROM public.clubs WHERE name = 'Padel Club København'),
+    '2026-04-25 10:30:00+00',
+    'singles',
+    'pending'
+  ),
+  -- Sunday: Lars proposes again (different club)
+  (
+    'cccccccc-0000-0000-0000-000000000007',
+    'bbbbbbbb-0000-0000-0000-000000000011',
+    'aaaaaaaa-0000-0000-0000-000000000003',
+    (SELECT id FROM public.clubs WHERE name = 'Padelhuset'),
+    '2026-04-26 14:30:00+00',
+    'singles',
+    'pending'
+  );
+
+-- Participants for the weekly proposals
+INSERT INTO public.match_participants (match_id, user_id, team, role, status) VALUES
+  -- Wednesday: Anna (host) vs Marco (invited)
+  ('cccccccc-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000002', 1, 'host',    'confirmed'),
+  ('cccccccc-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000001', 2, 'invited', 'pending'),
+  -- Thursday: Lars (host) vs Marco (invited)
+  ('cccccccc-0000-0000-0000-000000000004', 'aaaaaaaa-0000-0000-0000-000000000003', 1, 'host',    'confirmed'),
+  ('cccccccc-0000-0000-0000-000000000004', 'aaaaaaaa-0000-0000-0000-000000000001', 2, 'invited', 'pending'),
+  -- Friday: Sofie (host) vs Marco (invited)
+  ('cccccccc-0000-0000-0000-000000000005', 'aaaaaaaa-0000-0000-0000-000000000004', 1, 'host',    'confirmed'),
+  ('cccccccc-0000-0000-0000-000000000005', 'aaaaaaaa-0000-0000-0000-000000000001', 2, 'invited', 'pending'),
+  -- Saturday: Tobias (host) vs Marco (invited)
+  ('cccccccc-0000-0000-0000-000000000006', 'aaaaaaaa-0000-0000-0000-000000000005', 1, 'host',    'confirmed'),
+  ('cccccccc-0000-0000-0000-000000000006', 'aaaaaaaa-0000-0000-0000-000000000001', 2, 'invited', 'pending'),
+  -- Sunday: Lars (host) vs Marco (invited)
+  ('cccccccc-0000-0000-0000-000000000007', 'aaaaaaaa-0000-0000-0000-000000000003', 1, 'host',    'confirmed'),
+  ('cccccccc-0000-0000-0000-000000000007', 'aaaaaaaa-0000-0000-0000-000000000001', 2, 'invited', 'pending');

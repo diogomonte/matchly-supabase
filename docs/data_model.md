@@ -318,7 +318,7 @@ On update of `match_participants.status` from `pending` to `confirmed` or `decli
 
 **Logic:**
 1. Load caller's profile.
-2. Query open match requests in caller's home clubs, time window not in past, not from caller.
+2. Query all open match requests not from caller.
 3. Apply hard filters: not soft-blocked, intent compatible.
 4. For each remaining request, compute:
    ```
