@@ -115,7 +115,7 @@ UPDATE public.profiles SET
   display_name      = 'Marco Rossi',
   self_rated_level  = 3.5,
   calibrated_level  = 3.5,
-  playstyle_tags    = ARRAY['Aggressive', 'NetPlayer'],
+  playstyle_tags    = ARRAY['Aggressive Baseliner', 'Net Rusher'],
   intent            = 'competitive',
   reliability_score = 1.00,
   home_club_ids     = ARRAY(SELECT id FROM public.clubs ORDER BY name LIMIT 2)
@@ -125,7 +125,7 @@ UPDATE public.profiles SET
   display_name      = 'Anna Larsen',
   self_rated_level  = 3.5,
   calibrated_level  = 3.5,
-  playstyle_tags    = ARRAY['Consistent', 'Defensive'],
+  playstyle_tags    = ARRAY['Counterpuncher', 'Retriever'],
   intent            = 'both',
   reliability_score = 0.98,
   home_club_ids     = ARRAY(SELECT id FROM public.clubs ORDER BY name LIMIT 1)
@@ -135,7 +135,7 @@ UPDATE public.profiles SET
   display_name      = 'Lars Nielsen',
   self_rated_level  = 4.0,
   calibrated_level  = 4.0,
-  playstyle_tags    = ARRAY['Competitive', 'Aggressive'],
+  playstyle_tags    = ARRAY['Power Hitter', 'Big Server'],
   intent            = 'competitive',
   reliability_score = 0.95,
   home_club_ids     = ARRAY(SELECT id FROM public.clubs ORDER BY name LIMIT 2)
@@ -145,7 +145,7 @@ UPDATE public.profiles SET
   display_name      = 'Sofie Andersen',
   self_rated_level  = 3.0,
   calibrated_level  = 3.0,
-  playstyle_tags    = ARRAY['Social', 'Defensive'],
+  playstyle_tags    = ARRAY['Tactical Player', 'Slice Artist'],
   intent            = 'social',
   reliability_score = 0.90,
   home_club_ids     = ARRAY(SELECT id FROM public.clubs ORDER BY name LIMIT 1 OFFSET 1)
@@ -155,7 +155,7 @@ UPDATE public.profiles SET
   display_name      = 'Tobias Møller',
   self_rated_level  = 2.5,
   calibrated_level  = 2.5,
-  playstyle_tags    = ARRAY['Social', 'Consistent'],
+  playstyle_tags    = ARRAY['All-Court', 'Spin Master'],
   intent            = 'social',
   reliability_score = 0.85,
   home_club_ids     = ARRAY(SELECT id FROM public.clubs ORDER BY name LIMIT 2 OFFSET 1)
