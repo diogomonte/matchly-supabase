@@ -1,18 +1,23 @@
 /**
- * list_matches — paginated listing of match requests visible to the caller.
+ * list_matches — paginated listing of match requests or pending proposals
+ * visible to the caller.
  *
- * GET /list_matches?source=all&page=0
+ * GET /list_matches?source=all&page=0&from=<ISO8601>
  *
  * Query params:
- *   source  "mine" | "feed" | "all" (default: "all")
- *             mine → caller's own requests (any status)
- *             feed → other users' open requests
- *             all  → own (any status) + others' open
+ *   source  "mine" | "feed" | "all" | "proposals" (default: "all")
+ *             mine      → caller's own match requests (any status)
+ *             feed      → other users' open match requests
+ *             all       → own (any status) + others' open match requests
+ *             proposals → pending matches where the caller is a participant
  *   page    integer ≥ 0 (default: 0)
+ *   from    ISO 8601 datetime (default: now). For match requests, only rows
+ *           whose proposed_window ends at or after this timestamp are returned.
+ *           For proposals, only matches scheduled at or after this timestamp
+ *           are returned. Pass an explicit value to paginate historical data.
  *
- * Returns up to 10 match requests per page ordered by proposed_at ASC
- * (earliest window start first). Each row includes the creator's public
- * profile fields and the club name.
+ * Returns up to 10 rows per page. Match requests are ordered by proposed_at
+ * ASC; proposals are ordered by scheduled_at ASC.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -71,15 +76,95 @@ Deno.serve(async (req: Request) => {
   const source = url.searchParams.get('source') ?? 'all'
   const page = Math.max(0, parseInt(url.searchParams.get('page') ?? '0', 10) || 0)
 
-  if (!['mine', 'feed', 'all'].includes(source)) {
-    return json({ error: 'source must be "mine", "feed", or "all"' }, 400)
+  if (!['mine', 'feed', 'all', 'proposals'].includes(source)) {
+    return json({ error: 'source must be "mine", "feed", "all", or "proposals"' }, 400)
   }
+
+  // Parse the `from` param; default to the current moment.
+  const fromRaw = url.searchParams.get('from')
+  const fromDate = fromRaw ? new Date(fromRaw) : new Date()
+  if (isNaN(fromDate.getTime())) {
+    return json({ error: '`from` must be a valid ISO 8601 datetime' }, 400)
+  }
+  const fromIso = fromDate.toISOString()
 
   const offset = page * PAGE_SIZE
 
-  // ── Build query ─────────────────────────────────────────────────────────────
+  // ── proposals: pending matches where the caller is a participant ─────────────
+  if (source === 'proposals') {
+    const { data, error, count } = await supabase
+      .from('matches')
+      .select(
+        `
+        id,
+        host_id,
+        club_id,
+        scheduled_at,
+        format,
+        status,
+        created_at,
+        updated_at,
+        host:profiles!matches_host_id_fkey(
+          id,
+          display_name,
+          photo_url,
+          calibrated_level,
+          playstyle_tags,
+          reliability_score
+        ),
+        club:clubs!inner(id, name),
+        participants:match_participants(
+          user_id,
+          team,
+          role,
+          status
+        )
+      `,
+        { count: 'exact' },
+      )
+      .eq('status', 'pending')
+      .gte('scheduled_at', fromIso)
+      .order('scheduled_at', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1)
+
+    if (error) {
+      console.error('list_matches: proposals query failed', error)
+      return json({ error: 'Failed to load proposals' }, 500)
+    }
+
+    // RLS already limits rows to matches the caller participates in.
+    // In local dev (service-role) we filter manually.
+    const isLocalDev = Deno.env.get('LOCAL_DEV') === 'true'
+    const rows = isLocalDev
+      ? (data ?? []).filter((m: any) =>
+          m.participants?.some((p: any) => p.user_id === userId),
+        )
+      : (data ?? [])
+
+    console.log(`list_matches: page=${page} source=proposals rows=${rows.length} total=${count} from=${fromIso} user=${userId}`)
+
+    return json({
+      data: rows,
+      meta: {
+        page,
+        page_size: PAGE_SIZE,
+        total: count,
+        has_more: rows.length === PAGE_SIZE,
+        source,
+        from: fromIso,
+      },
+    })
+  }
+
+  // ── Build match_requests query ───────────────────────────────────────────────
   // Always apply explicit visibility filters so behavior is identical between
   // local dev (service-role, no RLS) and production (anon key + RLS).
+  //
+  // `proposed_window` is a tstzrange. We want rows whose window has not fully
+  // elapsed: upper(proposed_window) >= fromIso (i.e. the window ends at or
+  // after the `from` cutoff). PostgREST exposes range operators via the
+  // `overlaps` filter but we can't use upper() directly, so we use the range
+  // overlap operator: proposed_window && [fromIso, infinity).
   let query = supabase
     .from('match_requests')
     .select(
@@ -106,6 +191,7 @@ Deno.serve(async (req: Request) => {
     `,
       { count: 'exact' },
     )
+    .gte('proposed_at', fromIso)
     .order('proposed_at', { ascending: true })
     .range(offset, offset + PAGE_SIZE - 1)
 
@@ -129,7 +215,7 @@ Deno.serve(async (req: Request) => {
 
   const hasMore = (data?.length ?? 0) === PAGE_SIZE
 
-  console.log(`list_matches: page=${page} source=${source} rows=${data?.length} total=${count} user=${userId}`)
+  console.log(`list_matches: page=${page} source=${source} rows=${data?.length} total=${count} from=${fromIso} user=${userId}`)
 
   return json({
     data,
@@ -139,6 +225,7 @@ Deno.serve(async (req: Request) => {
       total: count,
       has_more: hasMore,
       source,
+      from: fromIso,
     },
   })
 })

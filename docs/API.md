@@ -216,7 +216,7 @@ Prefer: return=representation
 |-------|-----------|
 | `self_rated_level` | 1.0 – 5.0 |
 | `calibrated_level` | 1.0 – 5.0 |
-| `playstyle_tags` | max 3 values from: `Aggressive`, `Consistent`, `Defensive`, `Social`, `Competitive`, `NetPlayer`, `Lefty` |
+| `playstyle_tags` | max 3 values from: `Power Hitter`, `Spin Master`, `Net Rusher`, `Counterpuncher`, `Tactical Player`, `Big Server`, `Retriever`, `All-Court`, `Aggressive Baseliner`, `Moonballer`, `Slice Artist` |
 | `home_club_ids` | max 2 UUIDs from clubs table |
 | `intent` | `competitive` \| `social` \| `both` |
 
@@ -270,6 +270,8 @@ Prefer: return=representation
 
 `proposed_window` is a PostgreSQL timestamp range. Format: `[start,end)` in UTC.
 
+**Business rule — one request per day:** A user may post at most one match request per UTC calendar day. Attempting a second post on the same day returns **409**.
+
 **Response 201**
 ```json
 [
@@ -283,6 +285,22 @@ Prefer: return=representation
   }
 ]
 ```
+
+**Error responses:**
+
+| Status | `code` | `message` | Reason |
+|--------|--------|-----------|--------|
+| 401 | — | — | Missing or invalid JWT |
+| 403 | `42501` | `new row violates row-level security policy` | `creator_id` does not match the caller |
+| 409 | `23514` | `You can only post one match request per day` | Caller already has a request today (UTC) |
+
+**Frontend handling for 409:**
+
+Check `response.code === "23514"` (or HTTP status 409) and surface a non-blocking inline message such as:
+
+> "You've already posted a match request today. Come back tomorrow to post again."
+
+Do **not** disable the button pre-emptively (the user may not know they already posted). Show the error only after the failed request returns.
 
 #### List open requests (raw feed, unscored)
 

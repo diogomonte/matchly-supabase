@@ -107,12 +107,10 @@ Deno.serve(async (req: Request) => {
   )
 
   // ── Own open requests + others' open requests (parallel) ──────────────────
-  let othersQuery = supabase
-    .from('match_requests')
-    .select(REQUEST_SELECT)
-    .eq('status', 'open')
-    .neq('creator_id', userId)
-    .limit(200)
+  // Filter out requests whose proposed_window has already ended.
+  // proposed_window is a tstzrange; upper(proposed_window) > now() keeps only
+  // windows that haven't fully elapsed yet (including currently-active ones).
+  const now = new Date().toISOString()
 
   const [ownResult, othersResult, pairingsResult] = await Promise.all([
     supabase
@@ -120,8 +118,15 @@ Deno.serve(async (req: Request) => {
       .select(REQUEST_SELECT)
       .eq('status', 'open')
       .eq('creator_id', userId)
+      .filter('proposed_window', 'ov', `[${now},)`) // window overlaps [now, ∞)
       .order('proposed_at', { ascending: true }),
-    othersQuery,
+    supabase
+      .from('match_requests')
+      .select(REQUEST_SELECT)
+      .eq('status', 'open')
+      .neq('creator_id', userId)
+      .filter('proposed_window', 'ov', `[${now},)`) // window overlaps [now, ∞)
+      .limit(200),
     supabase
       .from('playstyle_pairings')
       .select('style_a, style_b, score'),
